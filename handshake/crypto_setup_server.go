@@ -28,6 +28,7 @@ type cryptoSetupServer struct {
 	scfg                 *ServerConfig
 	diversificationNonce []byte
 
+	nullAEAD                    crypto.AEAD
 	secureAEAD                  crypto.AEAD
 	forwardSecureAEAD           crypto.AEAD
 	receivedForwardSecurePacket bool
@@ -64,6 +65,7 @@ func NewCryptoSetup(
 		scfg:                 scfg,
 		keyDerivation:        crypto.DeriveKeysAESGCM,
 		keyExchange:          getEphermalKEX,
+		nullAEAD:             crypto.NewNullAEAD(protocol.PerspectiveServer, version),
 		cryptoStream:         cryptoStream,
 		connectionParameters: connectionParametersManager,
 		aeadChanged:          aeadChanged,
@@ -178,8 +180,7 @@ func (h *cryptoSetupServer) Open(dst, src []byte, packetNumber protocol.PacketNu
 			return nil, protocol.EncryptionUnspecified, err
 		}
 	}
-	nullAEAD := &crypto.NullAEAD{}
-	res, err := nullAEAD.Open(dst, src, packetNumber, associatedData)
+	res, err := h.nullAEAD.Open(dst, src, packetNumber, associatedData)
 	if err != nil {
 		return res, protocol.EncryptionUnspecified, err
 	}
@@ -196,14 +197,14 @@ func (h *cryptoSetupServer) Seal(dst, src []byte, packetNumber protocol.PacketNu
 		h.sentSHLO = true
 		return h.secureAEAD.Seal(dst, src, packetNumber, associatedData), protocol.EncryptionSecure
 	} else {
-		return (&crypto.NullAEAD{}).Seal(dst, src, packetNumber, associatedData), protocol.EncryptionUnencrypted
+		return h.nullAEAD.Seal(dst, src, packetNumber, associatedData), protocol.EncryptionUnencrypted
 	}
 }
 
 func (h *cryptoSetupServer) SealWith(dst, src []byte, packetNumber protocol.PacketNumber, associatedData []byte, forceEncryptionLevel protocol.EncryptionLevel) ([]byte, protocol.EncryptionLevel, error) {
 	switch forceEncryptionLevel {
 	case protocol.EncryptionUnencrypted:
-		return (&crypto.NullAEAD{}).Seal(dst, src, packetNumber, associatedData), protocol.EncryptionUnencrypted, nil
+		return h.nullAEAD.Seal(dst, src, packetNumber, associatedData), protocol.EncryptionUnencrypted, nil
 	case protocol.EncryptionSecure:
 		if h.secureAEAD == nil {
 			return nil, protocol.EncryptionUnspecified, errors.New("CryptoSetupServer: no secureAEAD")
