@@ -76,6 +76,7 @@ func (s *Server) handleSession(session quic.Session) {
             session.Close(qerr.Error(qerr.InvalidHeadersStreamData, err.Error()))
             return
         }
+        fmt.Println("Accept New Stream ", stream.StreamID())
 
         go func() {
             if err := s.handleStream(session, stream); err != nil {
@@ -161,19 +162,25 @@ func (s *Server) stat() {
 func main() {
     fmt.Println("QUIC Server...")
     defer fmt.Println("QUIC Server Exit...")
-
+    host := flag.String("h", "127.0.0.1", "host")
 	verbose := flag.Bool("v", false, "verbose")
+    flag.Parse()
+
 	if *verbose {
 		utils.SetLogLevel(utils.LogLevelDebug)
 	} else {
 		utils.SetLogLevel(utils.LogLevelInfo)
 	}
 
+    addr := *host + ":6121"
+    fmt.Println("Listen at:", addr)
+
     var listenerMutex sync.Mutex
     var listener quic.Listener
 
     quicServer := Server {
-        addr: "localhost:6121",
+        //addr: "localhost:6121",
+        addr: addr,
         certFile: "../example/fullchain.pem",
         keyFile: "../example/privkey.pem",
         listenerMutex: listenerMutex,
@@ -190,6 +197,8 @@ func main() {
         defer wg.Done()
         quicServer.ListenAndServe()
     }()
+
+
 
     go quicServer.stat()
 

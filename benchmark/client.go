@@ -123,7 +123,7 @@ func (c *Client) DoRequest() error {
 
     fmt.Println("Open Data StreamId ", dataStream.StreamID())
 
-    buf := make([]byte, 40960)
+    buf := make([]byte, 1024)
     //dataStream.Write([]byte{'x', 'u', 'c'})
     for i:=0; i<1; i++ {
         go func() {
